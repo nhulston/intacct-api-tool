@@ -152,6 +152,8 @@ public class MigrationSpreadsheet {
                     e.printStackTrace();
                 }
             })).start();
+
+            Thread.sleep(50);
         }
 
         // Set output file and file name

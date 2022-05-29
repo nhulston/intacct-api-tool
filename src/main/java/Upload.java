@@ -49,7 +49,7 @@ public class Upload implements ActionListener {
         label.setBounds(Login.getWidth() / 2 - 100, START_Y + Login.getCompHeight() + 50, 200, Login.getCompHeight());
         panel.add(label);
 
-        textArea = new JTextArea("Waiting for file upload...\n\n");
+        textArea = new JTextArea("Waiting for file upload. For large files, this text may not update for a bit, but the file upload was successful...\n\n");
         textArea.setLineWrap(true);
         textArea.setEditable(false);
         JScrollPane scrollPane = new JScrollPane(textArea);

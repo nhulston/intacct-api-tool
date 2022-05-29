@@ -24,7 +24,7 @@ public class UpdateSpreadsheet {
         "ID",
     };
     private static final String[] optionalCostCodeHeaders = {
-        "Item ID", "Parent ID", "Billable"
+        "Item ID", "Billable"
     };
     private static List<String[]> lineItems;
 
@@ -131,8 +131,21 @@ public class UpdateSpreadsheet {
     }
 
     /** Update standard cost types */
-    private static void updateStandardCostTypes(String[] values, List<Integer> categoryColumnNumbers) {
+    private static void updateStandardCostTypes(String[] values, List<Integer> categoryColumnNumbers, Row row) throws IOException, ParserConfigurationException, SAXException {
+        // Setup categoryValues
+        String[] categoryValues = new String[categoryColumnNumbers.size()];
+        for (int i = 0; i < categoryValues.length; i++) {
+            Cell cell = row.getCell(categoryColumnNumbers.get(i));
+            if (cell == null) continue;
 
+            categoryValues[i] = cell.toString().trim();
+        }
+
+        //
+        String id = values[0];
+        String itemID = values[1];
+        String billable = values[2].toLowerCase();
+        RequestsManager.updateStandardCostCode(id, itemID, billable, categoryValues);
     }
 
 
@@ -204,8 +217,16 @@ public class UpdateSpreadsheet {
 
             // Update standard cost code
             else if (SelectMode.getUpdateMode() == 5) {
-                updateStandardCostTypes(values, categoryColumnNumbers);
+                (new Thread(() -> {
+                    try {
+                        updateStandardCostTypes(values, categoryColumnNumbers, row);
+                    } catch (IOException | ParserConfigurationException | SAXException e) {
+                        e.printStackTrace();
+                    }
+                })).start();
             }
+
+            Thread.sleep(50);
         }
 
         // Do last contract creation

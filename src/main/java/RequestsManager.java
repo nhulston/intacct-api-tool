@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -73,25 +74,35 @@ public class RequestsManager {
         outputStream.flush();
         outputStream.close();
 
-        String responseSuccessMessage = connection.getResponseCode() + " " + connection.getResponseMessage();
-        if (connection.getResponseCode() != 200) {
-            if (!login) {
-                 Upload.appendTextArea("Some error occurred: " + responseSuccessMessage + "\n");
+        try {
+            int responseCode = connection.getResponseCode();
+            String responseSuccessMessage = responseCode + " " + connection.getResponseMessage();
+            if (responseCode != 200) {
+                if (!login) {
+                    Upload.appendTextArea("Some error occurred: " + responseSuccessMessage + "\n");
+                }
+                throw new IOException(responseSuccessMessage);
             }
-            throw new IOException(responseSuccessMessage);
+        } catch(SocketTimeoutException e) {
+            System.out.println("Get response code timed out");
         }
 
         // Read XML
-        InputStream inputStream = connection.getInputStream();
-        byte[] res = new byte[2048];
-        int i;
-        StringBuilder response = new StringBuilder();
-        while ((i = inputStream.read(res)) != -1) {
-            response.append(new String(res, 0, i));
+        try {
+            InputStream inputStream = connection.getInputStream();
+            byte[] res = new byte[2048];
+            int i;
+            StringBuilder response = new StringBuilder();
+            while ((i = inputStream.read(res)) != -1) {
+                response.append(new String(res, 0, i));
+            }
+            inputStream.close();
+            return response.toString();
+        } catch (SocketTimeoutException e) {
+            System.out.println("Get response code timed out");
         }
-        inputStream.close();
 
-        return response.toString();
+        return null;
     }
 
     private static String buildSageRequest(String action) {
@@ -115,6 +126,7 @@ public class RequestsManager {
     }
 
     private static String getErrorMessage(String response) throws ParserConfigurationException, IOException, SAXException {
+        if (response == null) return "Unknown, but likely successful.\n";
         StringBuilder output = new StringBuilder();
         try {
             NodeList list = getListFromXML(response, "error");
@@ -358,5 +370,33 @@ public class RequestsManager {
         String response = postRequest(request, false);
         String message = getErrorMessage(response);
         Upload.appendTextArea("Contract with document number " + fields[9] + ": " + message);
+    }
+
+    public static void updateStandardCostCode(String id, String itemID, String billable, String[] categoryValues) throws IOException, ParserConfigurationException, SAXException {
+        System.out.println("Updating standard cost code id: " + id);
+        StringBuilder function = new StringBuilder();
+        function.append("        <update>\n");
+        function.append("          <STANDARDTASK>\n");
+        function.append("            <STANDARDTASKID>").append(id).append("</STANDARDTASKID>\n");
+        if (itemID != null && !itemID.isEmpty()) { function.append("            <ITEMID>").append(itemID).append("</ITEMID>\n"); }
+        if (billable != null && !billable.isEmpty()) { function.append("            <BILLABLE>").append(billable).append("</BILLABLE>\n"); }
+        function.append("            <STANDARDTASKSTANDARDCOSTTYPES>\n");
+
+        for (String s : categoryValues) {
+            if (s == null || s.isEmpty()) break;
+
+            function.append("                <STANDARDTASKSTANDARDCOSTTYPE>\n");
+            function.append("                    <STANDARDCOSTTYPEID>").append(s).append("</STANDARDCOSTTYPEID>\n");
+            function.append("                </STANDARDTASKSTANDARDCOSTTYPE>\n");
+        }
+
+        function.append("            </STANDARDTASKSTANDARDCOSTTYPES>\n");
+        function.append("          </STANDARDTASK>\n");
+        function.append("        </update>\n");
+        String request = buildSageRequest(function.toString());
+        String response = postRequest(request, false);
+        String message = getErrorMessage(response);
+
+        Upload.appendTextArea("Update Item ID " + id + ": " + message);
     }
 }
